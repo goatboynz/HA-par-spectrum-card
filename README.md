@@ -1,43 +1,51 @@
-# AS7341 Spectrum Card for Home Assistant
+# AS7341 Spectrum Card
 
-A custom Lovelace card for visualizing AS7341 spectral sensor data in Home Assistant with beautiful spectrum charts showing PAR (Photosynthetically Active Radiation) analysis.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![GitHub Release](https://img.shields.io/github/release/goatboynz/HA-par-spectrum-card.svg)](https://github.com/goatboynz/HA-par-spectrum-card/releases)
 
-## Features
+A beautiful custom Lovelace card for visualizing AS7341 11-channel spectral sensor data in Home Assistant. Perfect for monitoring grow lights, analyzing light quality, and optimizing plant growth conditions.
 
-- 📊 Real-time spectrum visualization with gradient colors
-- 🌈 8-channel spectral data display (415nm - 680nm)
-- 🌱 PAR range highlighting (400-700nm)
-- 📈 Smooth curve interpolation
-- 🎨 Automatic color mapping to wavelengths
-- 📱 Responsive design
+![AS7341 Spectrum Card](screenshot.png)
 
-## Installation
+## ✨ Features
 
-### HACS (Recommended)
+- 🌈 **Beautiful spectrum visualization** - Smooth rainbow gradient showing your light's spectral distribution
+- 📊 **Interactive tooltips** - Hover over the spectrum to see exact values at any wavelength
+- 🎯 **8 spectral channels** - Displays all AS7341 channels (415nm - 680nm)
+- 💡 **Clear & NIR support** - Shows Clear and Near-Infrared readings
+- ⚠️ **Smart calibration warnings** - Automatically detects sensor saturation or weak signals
+- 🎨 **Modern design** - Sleek, gradient-based UI that fits perfectly with Home Assistant
+- 📱 **Fully responsive** - Works great on desktop, tablet, and mobile
 
-1. Open HACS in Home Assistant
-2. Go to "Frontend"
-3. Click the menu (three dots) in the top right
-4. Select "Custom repositories"
-5. Add this repository URL
-6. Select category "Lovelace"
-7. Click "Install"
-8. Restart Home Assistant
+## 📦 Installation
 
-### Manual Installation
+### Method 1: HACS (Recommended)
 
-1. Download `as7341-spectrum-card.js`
+1. Open **HACS** in Home Assistant
+2. Go to **Frontend** section
+3. Click the **⋮** menu (top right) → **Custom repositories**
+4. Add repository: `https://github.com/goatboynz/HA-par-spectrum-card`
+5. Category: **Lovelace**
+6. Click **Add** → Find "AS7341 Spectrum Card" → **Download**
+7. **Restart** Home Assistant
+8. Clear browser cache (Ctrl+F5)
+
+### Method 2: Manual Installation
+
+1. Download [`as7341-spectrum-card.js`](https://github.com/goatboynz/HA-par-spectrum-card/releases/latest)
 2. Copy to `config/www/as7341-spectrum-card.js`
-3. Add to Lovelace resources:
-   ```yaml
-   url: /local/as7341-spectrum-card.js
-   type: module
-   ```
-4. Restart Home Assistant
+3. Add resource in Lovelace:
+   - Go to **Settings** → **Dashboards** → **Resources**
+   - Click **Add Resource**
+   - URL: `/local/as7341-spectrum-card.js`
+   - Type: **JavaScript Module**
+4. **Restart** Home Assistant
 
-## ESPHome Configuration
+---
 
-First, configure your AS7341 sensor in ESPHome:
+## ⚙️ ESPHome Configuration
+
+Configure your AS7341 sensor in ESPHome with optimized settings:
 
 ```yaml
 i2c:
@@ -94,7 +102,9 @@ Integration time = `(atime + 1) × (astep + 1) × 2.78µs`
 - Normal indoor: `atime: 50, astep: 999, gain: X16`
 - Dim lighting: `atime: 100, astep: 999, gain: X64`
 
-## Card Configuration
+---
+
+## 🎨 Card Configuration
 
 Add the card to your Lovelace dashboard:
 
@@ -113,6 +123,31 @@ entities:
   clear: sensor.as7341_clear      # Optional
   nir: sensor.as7341_nir          # Optional
 ```
+
+### Configuration Options
+
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `entities` | object | **Yes** | - | Map of channel names to entity IDs |
+| `entities.f1` - `entities.f8` | string | **Yes** | - | Spectral channel entities (415-680nm) |
+| `entities.clear` | string | No | - | Clear channel entity (optional) |
+| `entities.nir` | string | No | - | Near-infrared channel entity (optional) |
+| `title` | string | No | `"Light Spectrum"` | Card title |
+
+### Channel Mapping
+
+| Channel | Wavelength | Color | Description |
+|---------|------------|-------|-------------|
+| `f1` | 415nm | Violet | UV-A / Deep violet |
+| `f2` | 445nm | Blue | Royal blue |
+| `f3` | 480nm | Cyan | Sky blue |
+| `f4` | 515nm | Green | True green |
+| `f5` | 555nm | Yellow-Green | Lime green |
+| `f6` | 590nm | Yellow | Amber |
+| `f7` | 630nm | Orange | Deep orange |
+| `f8` | 680nm | Red | Deep red |
+| `clear` | - | - | Broadband visible light |
+| `nir` | ~910nm | - | Near-infrared |
 
 ### Configuration Options
 
@@ -139,57 +174,112 @@ entities:
 
 You can use any entity naming scheme - just map them to the correct channels.
 
-## Understanding the Display
+---
 
-### Spectrum Chart
-- **X-axis**: Wavelength in nanometers (nm)
-- **Y-axis**: Relative intensity
-- **Green background**: PAR range (400-700nm) - optimal for photosynthesis
-- **Gradient fill**: Color-coded spectrum from violet to red
-- **Smooth curve**: Interpolated data between measurement points
+## 💡 How to Use
 
-### Channel Information
-Shows individual readings for each spectral channel with:
-- Channel name (F1-F8)
-- Wavelength
-- Current value
-- Color-coded display
+### Interactive Features
 
-### PAR Indicator
-Displays:
-- Total PAR value (sum of all channels in 400-700nm range)
-- Average PAR value
+- **Hover over the spectrum** - See exact values at any wavelength
+- **Hover near sensor points** - View specific channel readings with color coding
+- **UV region (<400nm)** - Shows extrapolated UV values
+- **Near-IR region (>700nm)** - Shows NIR sensor data when available
 
-## About PAR and Spectrum
+### Understanding the Visualization
 
-**PAR (Photosynthetically Active Radiation)** is the range of light wavelengths (400-700nm) that plants use for photosynthesis. The AS7341 sensor measures 8 specific wavelengths within and around this range:
+The card displays a smooth, interpolated curve based on your 8 sensor readings:
 
-- **Violet/Blue (415-480nm)**: Promotes vegetative growth
-- **Green (515-555nm)**: Penetrates deeper into plant canopy
-- **Yellow/Orange (590-630nm)**: Supports flowering
-- **Red (680nm)**: Critical for photosynthesis and flowering
+- **Smooth edges** - Spectrum gracefully tapers to zero at both ends (380-750nm)
+- **Rainbow gradient** - Color-coded from violet → blue → green → yellow → orange → red
+- **Interpolation** - Values between sensor points are calculated using cubic splines
+- **Real-time updates** - Chart updates automatically when sensor values change
 
-## Troubleshooting
+### Calibration Warnings
 
-### Card not showing
-1. Check that the resource is loaded in Lovelace
-2. Clear browser cache
-3. Check browser console for errors
+The card automatically detects sensor issues:
 
-### No data displayed
-1. Verify ESPHome device is online
-2. Check entity names match configuration
-3. Ensure sensors are publishing data
+- ⚠️ **Saturation warning** - All channels showing similar high values (>50,000)
+  - **Fix**: Reduce `gain` or `atime` in ESPHome
+- 📉 **Weak signal** - All values very low (<100)
+  - **Fix**: Increase `gain` or `atime` in ESPHome
+- 💡 **No light detected** - All values are zero
+  - **Fix**: Ensure sensor is exposed to light source
 
-### Incorrect values
-1. Verify AS7341 gain and integration time settings
-2. Check sensor calibration
-3. Ensure proper I2C connection
+---
 
-## License
+## 🌱 About Light Spectrum & PAR
 
-MIT License
+**PAR (Photosynthetically Active Radiation)** is the 400-700nm wavelength range that plants use for photosynthesis.
 
-## Credits
+### Wavelength Effects on Plants
 
-Based on AS7341 spectral sensor by AMS and ESPHome integration.
+| Range | Color | Plant Response |
+|-------|-------|----------------|
+| 380-450nm | Violet/Blue | Vegetative growth, compact structure |
+| 450-500nm | Blue | Chlorophyll absorption, photosynthesis |
+| 500-600nm | Green/Yellow | Canopy penetration, secondary photosynthesis |
+| 600-700nm | Orange/Red | Flowering, fruiting, photosynthesis |
+| 700-750nm | Far-Red/NIR | Shade avoidance, flowering timing |
+
+---
+
+## 🔧 Troubleshooting
+
+### Card not appearing
+
+- ✅ Verify resource is loaded: **Settings** → **Dashboards** → **Resources**
+- ✅ Clear browser cache: **Ctrl+F5** or **Cmd+Shift+R**
+- ✅ Check browser console (F12) for errors
+- ✅ Restart Home Assistant
+
+### No data / All zeros
+
+- ✅ Verify ESPHome device is **online**
+- ✅ Check entity names match your configuration exactly
+- ✅ Ensure sensor is exposed to **light source**
+- ✅ Check **Developer Tools** → **States** for entity values
+
+### Saturation (all channels same value)
+
+- ✅ **Reduce** `gain`: X128 → X64 → X32 → X16 → X8
+- ✅ **Reduce** `atime`: 100 → 50 → 29
+- ✅ **Reduce** `astep`: 999 → 599 → 299
+
+### Weak signal (values too low)
+
+- ✅ **Increase** `gain`: X8 → X16 → X32 → X64
+- ✅ **Increase** `atime`: 29 → 50 → 100
+- ✅ Check sensor is not obstructed
+- ✅ Verify I2C connection is stable
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details
+
+---
+
+## 🙏 Credits
+
+- AS7341 sensor by [AMS](https://ams.com/)
+- ESPHome integration
+- Inspired by professional spectroradiometer visualizations
+
+## ⭐ Support
+
+If you find this card useful, please consider:
+- ⭐ Starring the repository
+- 🐛 Reporting issues
+- 💡 Suggesting features
+- 🔧 Contributing improvements
+
+---
+
+**Made with 🌱 for the Home Assistant community**
