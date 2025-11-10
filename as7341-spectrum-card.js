@@ -155,28 +155,33 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.fillStyle = bgGradient;
     ctx.fillRect(padding, padding, chartWidth, chartHeight);
 
-    // Draw the actual data curve with gradient fill
+    // Prepare data points
+    const points = channels.map(ch => ({
+      x: this.wavelengthToX(ch.wavelength, chartWidth, padding),
+      y: padding + chartHeight - (ch.value / maxValue) * chartHeight
+    }));
+
+    // Draw the actual data curve with gradient fill using cardinal spline
     ctx.beginPath();
     ctx.moveTo(padding, padding + chartHeight);
+    ctx.lineTo(points[0].x, points[0].y);
 
-    // Create smooth curve through all points
-    for (let i = 0; i < channels.length; i++) {
-      const ch = channels[i];
-      const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
-      const y = padding + chartHeight - (ch.value / maxValue) * chartHeight;
+    // Use cardinal spline for smooth, natural curves
+    const tension = 0.5; // Controls curve tightness (0 = straight lines, 1 = very curvy)
+    
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[Math.max(i - 1, 0)];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[Math.min(i + 2, points.length - 1)];
       
-      if (i === 0) {
-        ctx.lineTo(x, y);
-      } else {
-        const prevCh = channels[i - 1];
-        const prevX = this.wavelengthToX(prevCh.wavelength, chartWidth, padding);
-        const prevY = padding + chartHeight - (prevCh.value / maxValue) * chartHeight;
-        
-        // Smooth bezier curve
-        const cpX1 = prevX + (x - prevX) / 3;
-        const cpX2 = prevX + 2 * (x - prevX) / 3;
-        ctx.bezierCurveTo(cpX1, prevY, cpX2, y, x, y);
-      }
+      // Calculate control points for cardinal spline
+      const cp1x = p1.x + (p2.x - p0.x) / 6 * tension;
+      const cp1y = p1.y + (p2.y - p0.y) / 6 * tension;
+      const cp2x = p2.x - (p3.x - p1.x) / 6 * tension;
+      const cp2y = p2.y - (p3.y - p1.y) / 6 * tension;
+      
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
     }
 
     const lastX = this.wavelengthToX(channels[channels.length - 1].wavelength, chartWidth, padding);
@@ -201,26 +206,24 @@ class AS7341SpectrumCard extends HTMLElement {
 
     // Draw outline on the data curve
     ctx.beginPath();
-    for (let i = 0; i < channels.length; i++) {
-      const ch = channels[i];
-      const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
-      const y = padding + chartHeight - (ch.value / maxValue) * chartHeight;
+    ctx.moveTo(points[0].x, points[0].y);
+    
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[Math.max(i - 1, 0)];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[Math.min(i + 2, points.length - 1)];
       
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        const prevCh = channels[i - 1];
-        const prevX = this.wavelengthToX(prevCh.wavelength, chartWidth, padding);
-        const prevY = padding + chartHeight - (prevCh.value / maxValue) * chartHeight;
-        
-        const cpX1 = prevX + (x - prevX) / 3;
-        const cpX2 = prevX + 2 * (x - prevX) / 3;
-        ctx.bezierCurveTo(cpX1, prevY, cpX2, y, x, y);
-      }
+      const cp1x = p1.x + (p2.x - p0.x) / 6 * tension;
+      const cp1y = p1.y + (p2.y - p0.y) / 6 * tension;
+      const cp2x = p2.x - (p3.x - p1.x) / 6 * tension;
+      const cp2y = p2.y - (p3.y - p1.y) / 6 * tension;
+      
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
     }
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     // Get text color from CSS variable
