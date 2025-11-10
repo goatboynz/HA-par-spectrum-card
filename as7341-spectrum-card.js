@@ -66,17 +66,7 @@ class AS7341SpectrumCard extends HTMLElement {
           color: var(--text-primary-color);
           border-radius: 8px;
           text-align: center;
-        }
-        .debug-info {
-          margin-top: 12px;
-          padding: 8px;
-          background: var(--secondary-background-color);
-          border-radius: 4px;
-          font-size: 11px;
-          font-family: monospace;
-          color: var(--secondary-text-color);
-          max-height: 200px;
-          overflow-y: auto;
+          font-size: 14px;
         }
       </style>
       <ha-card>
@@ -86,101 +76,44 @@ class AS7341SpectrumCard extends HTMLElement {
         </div>
         <div class="info-grid" id="channel-info"></div>
         <div class="par-indicator" id="par-info"></div>
-        <div class="debug-info" id="debug-info"></div>
       </ha-card>
     `;
   }
 
   updateChart() {
-    const debugInfo = [];
-    
-    if (!this._hass) {
-      debugInfo.push('ERROR: No hass object');
-      this.updateDebugInfo(debugInfo);
-      return;
-    }
-    
-    if (!this.config.entities) {
-      debugInfo.push('ERROR: No entities configured');
-      this.updateDebugInfo(debugInfo);
-      return;
-    }
-
-    debugInfo.push('Config entities:', JSON.stringify(this.config.entities, null, 2));
+    if (!this._hass || !this.config.entities) return;
 
     const channels = this.getChannelData();
-    
-    if (!channels || channels.length === 0) {
-      debugInfo.push('ERROR: No channel data retrieved');
-      this.updateDebugInfo(debugInfo);
-      return;
-    }
+    if (!channels || channels.length === 0) return;
 
-    debugInfo.push(`Found ${channels.length} channels`);
-    channels.forEach(ch => {
-      debugInfo.push(`${ch.name} (${ch.entity}): raw="${ch.rawState}" value=${ch.value} ${ch.unit} [${ch.available ? 'OK' : 'UNAVAILABLE'}]`);
-    });
-
-    this.updateDebugInfo(debugInfo);
     this.drawSpectrum(channels);
     this.updateChannelInfo(channels);
     this.updatePARInfo(channels);
-  }
-
-  updateDebugInfo(messages) {
-    const container = this.shadowRoot.getElementById('debug-info');
-    if (container) {
-      container.innerHTML = messages.join('<br>');
-    }
   }
 
   getChannelData() {
     const entities = this.config.entities || {};
     const channels = [
       { name: 'F1', wavelength: 415, color: '#8B00FF', entity: entities.f1 },
-      { name: 'F2', wavelength: 445, color: '#0000FF', entity: entities.f2 },
+      { name: 'F2', wavelength: 445, color: '#4169E1', entity: entities.f2 },
       { name: 'F3', wavelength: 480, color: '#00BFFF', entity: entities.f3 },
       { name: 'F4', wavelength: 515, color: '#00FF00', entity: entities.f4 },
       { name: 'F5', wavelength: 555, color: '#9ACD32', entity: entities.f5 },
-      { name: 'F6', wavelength: 590, color: '#FFFF00', entity: entities.f6 },
+      { name: 'F6', wavelength: 590, color: '#FFD700', entity: entities.f6 },
       { name: 'F7', wavelength: 630, color: '#FF8C00', entity: entities.f7 },
       { name: 'F8', wavelength: 680, color: '#FF0000', entity: entities.f8 }
     ];
 
-    console.log('=== AS7341 Card Debug ===');
-    console.log('Configured entities:', entities);
-    console.log('All available entity IDs containing "spectrum":', 
-      Object.keys(this._hass.states).filter(k => k.includes('spectrum')));
-
     return channels.filter(ch => ch.entity).map(ch => {
       const entity = this._hass.states[ch.entity];
-      
-      console.log(`\nChannel ${ch.name}:`);
-      console.log(`  Entity ID: ${ch.entity}`);
-      console.log(`  Entity found: ${!!entity}`);
-      console.log(`  Entity state: ${entity?.state}`);
-      console.log(`  Entity attributes:`, entity?.attributes);
-      
-      if (!entity) {
-        console.warn(`  WARNING: Entity ${ch.entity} not found in hass.states`);
-      }
-      
       const state = entity ? entity.state : 'unknown';
-      let value = 0;
-      
-      if (state && state !== 'unknown' && state !== 'unavailable') {
-        value = parseFloat(state);
-        console.log(`  Parsed value: ${value} (from state: "${state}")`);
-      } else {
-        console.log(`  State is ${state}, using 0`);
-      }
+      const value = (state && state !== 'unknown' && state !== 'unavailable') ? parseFloat(state) : 0;
       
       return {
         ...ch,
         value: isNaN(value) ? 0 : value,
         unit: entity?.attributes?.unit_of_measurement || '',
-        available: entity && state !== 'unknown' && state !== 'unavailable',
-        rawState: state
+        available: entity && state !== 'unknown' && state !== 'unavailable'
       };
     });
   }
@@ -199,7 +132,7 @@ class AS7341SpectrumCard extends HTMLElement {
 
     const width = rect.width;
     const height = rect.height;
-    const padding = 40;
+    const padding = 50;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
@@ -208,17 +141,13 @@ class AS7341SpectrumCard extends HTMLElement {
     // Find max value for scaling
     const maxValue = Math.max(...channels.map(ch => ch.value), 1);
 
-    // Draw PAR range background (400-700nm)
-    ctx.fillStyle = 'rgba(100, 200, 100, 0.1)';
-    const parStart = this.wavelengthToX(400, chartWidth, padding);
-    const parEnd = this.wavelengthToX(700, chartWidth, padding);
-    ctx.fillRect(parStart, padding, parEnd - parStart, chartHeight);
-
-    // Draw spectrum curve with gradient fill
+    // Draw spectrum curve with smooth interpolation
     ctx.beginPath();
     ctx.moveTo(padding, padding + chartHeight);
 
-    channels.forEach((ch, i) => {
+    // Create smooth curve through all points
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i];
       const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
       const y = padding + chartHeight - (ch.value / maxValue) * chartHeight;
       
@@ -229,30 +158,54 @@ class AS7341SpectrumCard extends HTMLElement {
         const prevX = this.wavelengthToX(prevCh.wavelength, chartWidth, padding);
         const prevY = padding + chartHeight - (prevCh.value / maxValue) * chartHeight;
         
-        const cpX = (prevX + x) / 2;
-        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
-        ctx.quadraticCurveTo(cpX, (prevY + y) / 2, x, y);
+        // Smooth bezier curve
+        const cpX1 = prevX + (x - prevX) / 3;
+        const cpX2 = prevX + 2 * (x - prevX) / 3;
+        ctx.bezierCurveTo(cpX1, prevY, cpX2, y, x, y);
       }
-    });
+    }
 
-    ctx.lineTo(this.wavelengthToX(channels[channels.length - 1].wavelength, chartWidth, padding), padding + chartHeight);
+    const lastX = this.wavelengthToX(channels[channels.length - 1].wavelength, chartWidth, padding);
+    ctx.lineTo(lastX, padding + chartHeight);
     ctx.closePath();
 
-    // Create gradient fill
+    // Create rainbow gradient fill
     const gradient = ctx.createLinearGradient(padding, 0, padding + chartWidth, 0);
-    gradient.addColorStop(0, 'rgba(139, 0, 255, 0.6)');
-    gradient.addColorStop(0.2, 'rgba(0, 0, 255, 0.6)');
-    gradient.addColorStop(0.4, 'rgba(0, 255, 0, 0.6)');
-    gradient.addColorStop(0.6, 'rgba(255, 255, 0, 0.6)');
-    gradient.addColorStop(0.8, 'rgba(255, 140, 0, 0.6)');
-    gradient.addColorStop(1, 'rgba(255, 0, 0, 0.6)');
+    gradient.addColorStop(0, 'rgba(138, 43, 226, 0.8)');    // Violet
+    gradient.addColorStop(0.15, 'rgba(75, 0, 130, 0.8)');   // Indigo
+    gradient.addColorStop(0.3, 'rgba(0, 0, 255, 0.8)');     // Blue
+    gradient.addColorStop(0.45, 'rgba(0, 255, 255, 0.8)');  // Cyan
+    gradient.addColorStop(0.55, 'rgba(0, 255, 0, 0.8)');    // Green
+    gradient.addColorStop(0.7, 'rgba(255, 255, 0, 0.8)');   // Yellow
+    gradient.addColorStop(0.85, 'rgba(255, 127, 0, 0.8)');  // Orange
+    gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');       // Red
     
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    // Draw line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.lineWidth = 2;
+    // Draw white outline on curve
+    ctx.beginPath();
+    ctx.moveTo(padding, padding + chartHeight);
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i];
+      const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
+      const y = padding + chartHeight - (ch.value / maxValue) * chartHeight;
+      
+      if (i === 0) {
+        ctx.lineTo(x, y);
+      } else {
+        const prevCh = channels[i - 1];
+        const prevX = this.wavelengthToX(prevCh.wavelength, chartWidth, padding);
+        const prevY = padding + chartHeight - (prevCh.value / maxValue) * chartHeight;
+        
+        const cpX1 = prevX + (x - prevX) / 3;
+        const cpX2 = prevX + 2 * (x - prevX) / 3;
+        ctx.bezierCurveTo(cpX1, prevY, cpX2, y, x, y);
+      }
+    }
+    
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     // Get text color from CSS variable
@@ -260,34 +213,36 @@ class AS7341SpectrumCard extends HTMLElement {
 
     // Draw axes
     ctx.strokeStyle = textColor;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(padding, padding);
     ctx.lineTo(padding, padding + chartHeight);
     ctx.lineTo(padding + chartWidth, padding + chartHeight);
     ctx.stroke();
 
-    // Draw labels
+    // Draw wavelength labels
     ctx.fillStyle = textColor;
-    ctx.font = '12px sans-serif';
+    ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     
     channels.forEach(ch => {
       const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
-      ctx.fillText(`${ch.wavelength}nm`, x, height - 10);
+      ctx.fillText(`${ch.wavelength}nm`, x, height - 15);
     });
 
     // Y-axis label
     ctx.save();
-    ctx.translate(15, height / 2);
+    ctx.translate(12, height / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center';
+    ctx.font = '12px sans-serif';
     ctx.fillText('Intensity', 0, 0);
     ctx.restore();
 
     // X-axis label
     ctx.textAlign = 'center';
-    ctx.fillText('Wavelength (nm)', width / 2, height - 5);
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Wavelength (nm)', width / 2, height - 2);
   }
 
   wavelengthToX(wavelength, chartWidth, padding) {
