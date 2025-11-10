@@ -141,7 +141,21 @@ class AS7341SpectrumCard extends HTMLElement {
     // Find max value for scaling
     const maxValue = Math.max(...channels.map(ch => ch.value), 1);
 
-    // Draw spectrum curve with smooth interpolation
+    // Draw background gradient (soft pastel colors)
+    const bgGradient = ctx.createLinearGradient(padding, 0, padding + chartWidth, 0);
+    bgGradient.addColorStop(0, 'rgba(138, 43, 226, 0.15)');    // Violet
+    bgGradient.addColorStop(0.15, 'rgba(100, 149, 237, 0.15)'); // Cornflower blue
+    bgGradient.addColorStop(0.3, 'rgba(135, 206, 235, 0.15)');  // Sky blue
+    bgGradient.addColorStop(0.45, 'rgba(144, 238, 144, 0.15)'); // Light green
+    bgGradient.addColorStop(0.55, 'rgba(255, 255, 224, 0.15)'); // Light yellow
+    bgGradient.addColorStop(0.7, 'rgba(255, 218, 185, 0.15)');  // Peach
+    bgGradient.addColorStop(0.85, 'rgba(255, 192, 203, 0.15)'); // Pink
+    bgGradient.addColorStop(1, 'rgba(255, 182, 193, 0.15)');    // Light pink
+    
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(padding, padding, chartWidth, chartHeight);
+
+    // Draw the actual data curve with gradient fill
     ctx.beginPath();
     ctx.moveTo(padding, padding + chartHeight);
 
@@ -169,30 +183,31 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.lineTo(lastX, padding + chartHeight);
     ctx.closePath();
 
-    // Create rainbow gradient fill
-    const gradient = ctx.createLinearGradient(padding, 0, padding + chartWidth, 0);
-    gradient.addColorStop(0, 'rgba(138, 43, 226, 0.8)');    // Violet
-    gradient.addColorStop(0.15, 'rgba(75, 0, 130, 0.8)');   // Indigo
-    gradient.addColorStop(0.3, 'rgba(0, 0, 255, 0.8)');     // Blue
-    gradient.addColorStop(0.45, 'rgba(0, 255, 255, 0.8)');  // Cyan
-    gradient.addColorStop(0.55, 'rgba(0, 255, 0, 0.8)');    // Green
-    gradient.addColorStop(0.7, 'rgba(255, 255, 0, 0.8)');   // Yellow
-    gradient.addColorStop(0.85, 'rgba(255, 127, 0, 0.8)');  // Orange
-    gradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');       // Red
+    // Create vibrant rainbow gradient fill for data
+    const dataGradient = ctx.createLinearGradient(padding, 0, padding + chartWidth, 0);
+    dataGradient.addColorStop(0, 'rgba(138, 43, 226, 0.9)');    // Violet
+    dataGradient.addColorStop(0.15, 'rgba(75, 0, 130, 0.9)');   // Indigo
+    dataGradient.addColorStop(0.25, 'rgba(0, 0, 255, 0.9)');    // Blue
+    dataGradient.addColorStop(0.4, 'rgba(0, 191, 255, 0.9)');   // Deep sky blue
+    dataGradient.addColorStop(0.5, 'rgba(0, 255, 0, 0.9)');     // Green
+    dataGradient.addColorStop(0.6, 'rgba(173, 255, 47, 0.9)');  // Green yellow
+    dataGradient.addColorStop(0.7, 'rgba(255, 255, 0, 0.9)');   // Yellow
+    dataGradient.addColorStop(0.8, 'rgba(255, 165, 0, 0.9)');   // Orange
+    dataGradient.addColorStop(0.9, 'rgba(255, 69, 0, 0.9)');    // Red orange
+    dataGradient.addColorStop(1, 'rgba(255, 0, 0, 0.9)');       // Red
     
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = dataGradient;
     ctx.fill();
 
-    // Draw white outline on curve
+    // Draw outline on the data curve
     ctx.beginPath();
-    ctx.moveTo(padding, padding + chartHeight);
     for (let i = 0; i < channels.length; i++) {
       const ch = channels[i];
       const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
       const y = padding + chartHeight - (ch.value / maxValue) * chartHeight;
       
       if (i === 0) {
-        ctx.lineTo(x, y);
+        ctx.moveTo(x, y);
       } else {
         const prevCh = channels[i - 1];
         const prevX = this.wavelengthToX(prevCh.wavelength, chartWidth, padding);
@@ -204,8 +219,8 @@ class AS7341SpectrumCard extends HTMLElement {
       }
     }
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
     ctx.stroke();
 
     // Get text color from CSS variable
@@ -222,13 +237,14 @@ class AS7341SpectrumCard extends HTMLElement {
 
     // Draw wavelength labels
     ctx.fillStyle = textColor;
-    ctx.font = '11px sans-serif';
+    ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     
-    channels.forEach(ch => {
-      const x = this.wavelengthToX(ch.wavelength, chartWidth, padding);
-      ctx.fillText(`${ch.wavelength}nm`, x, height - 15);
-    });
+    // Draw labels at regular intervals
+    for (let wl = 400; wl <= 700; wl += 50) {
+      const x = this.wavelengthToX(wl, chartWidth, padding);
+      ctx.fillText(`${wl}`, x, height - 15);
+    }
 
     // Y-axis label
     ctx.save();
@@ -236,7 +252,7 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center';
     ctx.font = '12px sans-serif';
-    ctx.fillText('Intensity', 0, 0);
+    ctx.fillText('Relative Intensity', 0, 0);
     ctx.restore();
 
     // X-axis label
