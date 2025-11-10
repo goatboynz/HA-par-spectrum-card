@@ -155,7 +155,7 @@ class AS7341SpectrumCard extends HTMLElement {
       
       // Calculate wavelength from x position
       const ratio = (x - padding) / chartWidth;
-      const wavelength = Math.round(400 + ratio * 300);
+      const wavelength = Math.round(380 + ratio * 370);
       
       // Find closest channel or interpolate
       const value = this.getValueAtWavelength(wavelength);
@@ -174,10 +174,41 @@ class AS7341SpectrumCard extends HTMLElement {
         wavelengthEl.textContent = `${nearestChannel.name} (${nearestChannel.wavelength}nm)`;
         valueEl.textContent = `${nearestChannel.value.toFixed(1)} ${unit}`;
         valueEl.style.color = nearestChannel.color;
+      } else if (wavelength < 400) {
+        wavelengthEl.textContent = `${wavelength}nm (UV)`;
+        valueEl.textContent = `${value.toFixed(1)} ${unit}`;
+        valueEl.style.color = '#9370DB';
+      } else if (wavelength > 700) {
+        wavelengthEl.textContent = `${wavelength}nm (Near-IR)`;
+        if (this._nirValue !== undefined && wavelength > 720) {
+          valueEl.textContent = `NIR: ${this._nirValue.toFixed(1)} ${this._nirUnit}`;
+          valueEl.style.color = '#8B0000';
+        } else {
+          valueEl.textContent = `${value.toFixed(1)} ${unit}`;
+          valueEl.style.color = '#8B0000';
+        }
       } else {
         wavelengthEl.textContent = `${wavelength}nm`;
         valueEl.textContent = `${value.toFixed(1)} ${unit}`;
         valueEl.style.color = '#4CAF50';
+      }
+      
+      // Show Clear value when hovering over the full spectrum
+      if (this._clearValue !== undefined && wavelength >= 400 && wavelength <= 700) {
+        const clearInfo = document.createElement('div');
+        clearInfo.style.fontSize = '10px';
+        clearInfo.style.marginTop = '4px';
+        clearInfo.style.color = '#CCCCCC';
+        clearInfo.textContent = `Clear: ${this._clearValue.toFixed(1)} ${this._clearUnit}`;
+        
+        // Only add if not already there
+        if (!tooltip.querySelector('.clear-info')) {
+          clearInfo.className = 'clear-info';
+          tooltip.appendChild(clearInfo);
+        }
+      } else {
+        const clearInfo = tooltip.querySelector('.clear-info');
+        if (clearInfo) clearInfo.remove();
       }
       
       // Position tooltip
@@ -393,7 +424,7 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     
-    for (let wl = 400; wl <= 700; wl += 50) {
+    for (let wl = 400; wl <= 750; wl += 50) {
       const x = this.wavelengthToX(wl, chartWidth, padding);
       ctx.fillText(`${wl}`, x, height - 15);
     }
@@ -415,21 +446,35 @@ class AS7341SpectrumCard extends HTMLElement {
 
   interpolateSpectrum(channels, maxValue, chartWidth, chartHeight, padding) {
     const points = [];
-    const numInterpolated = 100; // Number of points to create smooth curve
+    const numInterpolated = 150; // More points for smoother curve
     
-    // Create array of wavelength/value pairs
+    // Create array of wavelength/value pairs with extended range
     const dataPoints = channels.map(ch => ({
       wavelength: ch.wavelength,
       value: ch.value
     }));
     
+    // Add virtual points at the edges for smooth drop-off
+    const firstValue = dataPoints[0].value;
+    const lastValue = dataPoints[dataPoints.length - 1].value;
+    
+    // Extend the range from 380nm to 750nm for smooth edges
+    const extendedDataPoints = [
+      { wavelength: 380, value: 0 },
+      { wavelength: 395, value: firstValue * 0.3 },
+      ...dataPoints,
+      { wavelength: 700, value: lastValue * 0.5 },
+      { wavelength: 730, value: lastValue * 0.2 },
+      { wavelength: 750, value: 0 }
+    ];
+    
     // Interpolate between points using cubic interpolation
     for (let i = 0; i <= numInterpolated; i++) {
-      const wavelength = 415 + (i / numInterpolated) * (680 - 415);
-      const value = this.cubicInterpolate(dataPoints, wavelength);
+      const wavelength = 380 + (i / numInterpolated) * (750 - 380);
+      const value = this.cubicInterpolate(extendedDataPoints, wavelength);
       const x = this.wavelengthToX(wavelength, chartWidth, padding);
-      const y = padding + chartHeight - (value / maxValue) * chartHeight;
-      points.push({ x, y });
+      const y = padding + chartHeight - (Math.max(0, value) / maxValue) * chartHeight;
+      points.push({ x, y, wavelength });
     }
     
     return points;
@@ -475,8 +520,8 @@ class AS7341SpectrumCard extends HTMLElement {
   }
 
   wavelengthToX(wavelength, chartWidth, padding) {
-    const minWavelength = 400;
-    const maxWavelength = 700;
+    const minWavelength = 380;
+    const maxWavelength = 750;
     const ratio = (wavelength - minWavelength) / (maxWavelength - minWavelength);
     return padding + ratio * chartWidth;
   }
