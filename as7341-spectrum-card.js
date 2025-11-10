@@ -21,79 +21,85 @@ class AS7341SpectrumCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card {
-          padding: 16px;
+          padding: 0;
+          overflow: hidden;
+          background: var(--card-background-color);
+          border-radius: 12px;
         }
         .card-header {
-          font-size: 24px;
-          font-weight: 500;
-          padding-bottom: 12px;
+          font-size: 22px;
+          font-weight: 600;
+          padding: 20px 20px 0 20px;
+          color: var(--primary-text-color);
+          letter-spacing: 0.3px;
         }
         .spectrum-container {
           position: relative;
           width: 100%;
-          height: 300px;
-          margin: 20px 0;
+          height: 320px;
+          padding: 20px;
           cursor: crosshair;
+          background: linear-gradient(180deg, 
+            var(--card-background-color) 0%, 
+            rgba(var(--rgb-primary-color, 33, 150, 243), 0.03) 100%);
         }
         canvas {
           width: 100%;
           height: 100%;
+          border-radius: 8px;
         }
         .tooltip {
           position: absolute;
-          background: rgba(0, 0, 0, 0.9);
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(30, 30, 30, 0.95));
           color: white;
-          padding: 8px 12px;
-          border-radius: 6px;
+          padding: 10px 14px;
+          border-radius: 8px;
           font-size: 12px;
           pointer-events: none;
           opacity: 0;
-          transition: opacity 0.2s;
+          transition: opacity 0.2s ease;
           z-index: 1000;
           white-space: nowrap;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
         }
         .tooltip.show {
           opacity: 1;
         }
         .tooltip-wavelength {
-          font-weight: bold;
+          font-weight: 600;
           margin-bottom: 4px;
+          font-size: 13px;
         }
         .tooltip-value {
           color: #4CAF50;
-        }
-        .par-indicator {
-          margin-top: 12px;
-          padding: 12px;
-          background: var(--primary-color);
-          color: var(--text-primary-color);
-          border-radius: 8px;
-          text-align: center;
-          font-size: 14px;
+          font-weight: 500;
         }
         .warning-indicator {
-          margin-top: 12px;
-          padding: 12px;
-          background: var(--warning-color, #ff9800);
-          color: var(--text-primary-color);
+          margin: 0 20px 20px 20px;
+          padding: 12px 16px;
+          background: linear-gradient(135deg, #ff9800, #f57c00);
+          color: white;
           border-radius: 8px;
           text-align: center;
           font-size: 13px;
           display: none;
+          box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
         }
         .warning-indicator.show {
           display: block;
         }
         .info-indicator {
-          margin-top: 12px;
-          padding: 12px;
-          background: var(--info-color, #2196F3);
-          color: var(--text-primary-color);
+          margin: 0 20px 20px 20px;
+          padding: 12px 16px;
+          background: linear-gradient(135deg, #2196F3, #1976D2);
+          color: white;
           border-radius: 8px;
           text-align: center;
           font-size: 13px;
           display: none;
+          box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
         }
         .info-indicator.show {
           display: block;
@@ -110,7 +116,6 @@ class AS7341SpectrumCard extends HTMLElement {
         </div>
         <div class="warning-indicator" id="warning-info"></div>
         <div class="info-indicator" id="status-info"></div>
-        <div class="par-indicator" id="par-info"></div>
       </ha-card>
     `;
     
@@ -127,7 +132,6 @@ class AS7341SpectrumCard extends HTMLElement {
     this._channels = channels; // Store for tooltip
     this.checkSensorStatus(channels);
     this.drawSpectrum(channels);
-    this.updatePARInfo(channels);
   }
 
   setupTooltip() {
@@ -528,30 +532,7 @@ class AS7341SpectrumCard extends HTMLElement {
 
 
 
-  updatePARInfo(channels) {
-    const parChannels = channels.filter(ch => ch.wavelength >= 400 && ch.wavelength <= 700);
-    const totalPAR = parChannels.reduce((sum, ch) => sum + ch.value, 0);
-    const avgPAR = totalPAR / parChannels.length;
 
-    const container = this.shadowRoot.getElementById('par-info');
-    
-    let parInfo = `<strong>PAR (400-700nm)</strong><br>Total: ${totalPAR.toFixed(1)} | Average: ${avgPAR.toFixed(1)}`;
-    
-    // Add Clear and NIR if available
-    if (this._clearValue !== undefined || this._nirValue !== undefined) {
-      parInfo += '<br><span style="font-size: 12px;">';
-      if (this._clearValue !== undefined) {
-        parInfo += `Clear: ${this._clearValue.toFixed(1)} ${this._clearUnit}`;
-      }
-      if (this._nirValue !== undefined) {
-        if (this._clearValue !== undefined) parInfo += ' | ';
-        parInfo += `NIR: ${this._nirValue.toFixed(1)} ${this._nirUnit}`;
-      }
-      parInfo += '</span>';
-    }
-    
-    container.innerHTML = parInfo;
-  }
 
   getCardSize() {
     return 5;
