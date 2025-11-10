@@ -33,31 +33,35 @@ class AS7341SpectrumCard extends HTMLElement {
           width: 100%;
           height: 300px;
           margin: 20px 0;
+          cursor: crosshair;
         }
         canvas {
           width: 100%;
           height: 100%;
         }
-        .info-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 12px;
-          margin-top: 16px;
+        .tooltip {
+          position: absolute;
+          background: rgba(0, 0, 0, 0.9);
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.2s;
+          z-index: 1000;
+          white-space: nowrap;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
-        .info-item {
-          text-align: center;
-          padding: 8px;
-          background: var(--secondary-background-color);
-          border-radius: 8px;
+        .tooltip.show {
+          opacity: 1;
         }
-        .info-label {
-          font-size: 11px;
-          color: var(--secondary-text-color);
+        .tooltip-wavelength {
+          font-weight: bold;
           margin-bottom: 4px;
         }
-        .info-value {
-          font-size: 16px;
-          font-weight: 500;
+        .tooltip-value {
+          color: #4CAF50;
         }
         .par-indicator {
           margin-top: 12px;
@@ -97,15 +101,21 @@ class AS7341SpectrumCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="card-header">${this.config.title || 'Light Spectrum'}</div>
-        <div class="spectrum-container">
+        <div class="spectrum-container" id="spectrum-container">
           <canvas id="spectrum-canvas"></canvas>
+          <div class="tooltip" id="tooltip">
+            <div class="tooltip-wavelength"></div>
+            <div class="tooltip-value"></div>
+          </div>
         </div>
         <div class="warning-indicator" id="warning-info"></div>
         <div class="info-indicator" id="status-info"></div>
-        <div class="info-grid" id="channel-info"></div>
         <div class="par-indicator" id="par-info"></div>
       </ha-card>
     `;
+    
+    // Add mouse event listeners after rendering
+    setTimeout(() => this.setupTooltip(), 0);
   }
 
   updateChart() {
@@ -114,10 +124,85 @@ class AS7341SpectrumCard extends HTMLElement {
     const channels = this.getChannelData();
     if (!channels || channels.length === 0) return;
 
+    this._channels = channels; // Store for tooltip
     this.checkSensorStatus(channels);
     this.drawSpectrum(channels);
-    this.updateChannelInfo(channels);
     this.updatePARInfo(channels);
+  }
+
+  setupTooltip() {
+    const container = this.shadowRoot.getElementById('spectrum-container');
+    const canvas = this.shadowRoot.getElementById('spectrum-canvas');
+    const tooltip = this.shadowRoot.getElementById('tooltip');
+    
+    if (!container || !canvas || !tooltip) return;
+
+    const handleMouseMove = (e) => {
+      if (!this._channels) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const padding = 50;
+      const chartWidth = rect.width - padding * 2;
+      
+      // Check if mouse is within chart area
+      if (x < padding || x > rect.width - padding) {
+        tooltip.classList.remove('show');
+        return;
+      }
+      
+      // Calculate wavelength from x position
+      const ratio = (x - padding) / chartWidth;
+      const wavelength = Math.round(400 + ratio * 300);
+      
+      // Find closest channel or interpolate
+      const value = this.getValueAtWavelength(wavelength);
+      const unit = this._channels[0]?.unit || '';
+      
+      // Find if we're near a specific channel
+      const nearestChannel = this._channels.find(ch => 
+        Math.abs(ch.wavelength - wavelength) < 15
+      );
+      
+      // Update tooltip content
+      const wavelengthEl = tooltip.querySelector('.tooltip-wavelength');
+      const valueEl = tooltip.querySelector('.tooltip-value');
+      
+      if (nearestChannel) {
+        wavelengthEl.textContent = `${nearestChannel.name} (${nearestChannel.wavelength}nm)`;
+        valueEl.textContent = `${nearestChannel.value.toFixed(1)} ${unit}`;
+        valueEl.style.color = nearestChannel.color;
+      } else {
+        wavelengthEl.textContent = `${wavelength}nm`;
+        valueEl.textContent = `${value.toFixed(1)} ${unit}`;
+        valueEl.style.color = '#4CAF50';
+      }
+      
+      // Position tooltip
+      tooltip.style.left = `${x + 15}px`;
+      tooltip.style.top = `${y - 40}px`;
+      tooltip.classList.add('show');
+    };
+    
+    const handleMouseLeave = () => {
+      tooltip.classList.remove('show');
+    };
+    
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
+  }
+
+  getValueAtWavelength(wavelength) {
+    if (!this._channels) return 0;
+    
+    const dataPoints = this._channels.map(ch => ({
+      wavelength: ch.wavelength,
+      value: ch.value
+    }));
+    
+    return this.cubicInterpolate(dataPoints, wavelength);
   }
 
   checkSensorStatus(channels) {
@@ -135,7 +220,7 @@ class AS7341SpectrumCard extends HTMLElement {
     }
     
     const maxValue = Math.max(...values);
-    const minValue = Math.min(...values.filter(v => v > 0));
+
     const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
     
     // Check for saturation (all values very similar and high)
@@ -396,37 +481,7 @@ class AS7341SpectrumCard extends HTMLElement {
     return padding + ratio * chartWidth;
   }
 
-  updateChannelInfo(channels) {
-    const container = this.shadowRoot.getElementById('channel-info');
-    let html = channels.map(ch => `
-      <div class="info-item">
-        <div class="info-label">${ch.name} (${ch.wavelength}nm)</div>
-        <div class="info-value" style="color: ${ch.color}">${ch.value.toFixed(1)} ${ch.unit}</div>
-      </div>
-    `).join('');
 
-    // Add Clear channel if available
-    if (this._clearValue !== undefined) {
-      html += `
-        <div class="info-item">
-          <div class="info-label">Clear</div>
-          <div class="info-value" style="color: #FFFFFF">${this._clearValue.toFixed(1)} ${this._clearUnit}</div>
-        </div>
-      `;
-    }
-
-    // Add NIR channel if available
-    if (this._nirValue !== undefined) {
-      html += `
-        <div class="info-item">
-          <div class="info-label">NIR (Near-IR)</div>
-          <div class="info-value" style="color: #8B0000">${this._nirValue.toFixed(1)} ${this._nirUnit}</div>
-        </div>
-      `;
-    }
-
-    container.innerHTML = html;
-  }
 
   updatePARInfo(channels) {
     const parChannels = channels.filter(ch => ch.wavelength >= 400 && ch.wavelength <= 700);
@@ -434,10 +489,23 @@ class AS7341SpectrumCard extends HTMLElement {
     const avgPAR = totalPAR / parChannels.length;
 
     const container = this.shadowRoot.getElementById('par-info');
-    container.innerHTML = `
-      <strong>PAR (400-700nm)</strong><br>
-      Total: ${totalPAR.toFixed(1)} | Average: ${avgPAR.toFixed(1)}
-    `;
+    
+    let parInfo = `<strong>PAR (400-700nm)</strong><br>Total: ${totalPAR.toFixed(1)} | Average: ${avgPAR.toFixed(1)}`;
+    
+    // Add Clear and NIR if available
+    if (this._clearValue !== undefined || this._nirValue !== undefined) {
+      parInfo += '<br><span style="font-size: 12px;">';
+      if (this._clearValue !== undefined) {
+        parInfo += `Clear: ${this._clearValue.toFixed(1)} ${this._clearUnit}`;
+      }
+      if (this._nirValue !== undefined) {
+        if (this._clearValue !== undefined) parInfo += ' | ';
+        parInfo += `NIR: ${this._nirValue.toFixed(1)} ${this._nirUnit}`;
+      }
+      parInfo += '</span>';
+    }
+    
+    container.innerHTML = parInfo;
   }
 
   getCardSize() {
