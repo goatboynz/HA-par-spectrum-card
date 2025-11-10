@@ -104,7 +104,7 @@ class AS7341SpectrumCard extends HTMLElement {
       { name: 'F8', wavelength: 680, color: '#FF0000', entity: entities.f8 }
     ];
 
-    return channels.filter(ch => ch.entity).map(ch => {
+    const spectrumData = channels.filter(ch => ch.entity).map(ch => {
       const entity = this._hass.states[ch.entity];
       const state = entity ? entity.state : 'unknown';
       const value = (state && state !== 'unknown' && state !== 'unavailable') ? parseFloat(state) : 0;
@@ -116,6 +116,25 @@ class AS7341SpectrumCard extends HTMLElement {
         available: entity && state !== 'unknown' && state !== 'unavailable'
       };
     });
+
+    // Store clear and NIR data separately for display
+    if (entities.clear) {
+      const clearEntity = this._hass.states[entities.clear];
+      const clearState = clearEntity ? clearEntity.state : 'unknown';
+      const clearValue = (clearState && clearState !== 'unknown' && clearState !== 'unavailable') ? parseFloat(clearState) : 0;
+      this._clearValue = isNaN(clearValue) ? 0 : clearValue;
+      this._clearUnit = clearEntity?.attributes?.unit_of_measurement || '';
+    }
+
+    if (entities.nir) {
+      const nirEntity = this._hass.states[entities.nir];
+      const nirState = nirEntity ? nirEntity.state : 'unknown';
+      const nirValue = (nirState && nirState !== 'unknown' && nirState !== 'unavailable') ? parseFloat(nirState) : 0;
+      this._nirValue = isNaN(nirValue) ? 0 : nirValue;
+      this._nirUnit = nirEntity?.attributes?.unit_of_measurement || '';
+    }
+
+    return spectrumData;
   }
 
   drawSpectrum(channels) {
@@ -310,12 +329,34 @@ class AS7341SpectrumCard extends HTMLElement {
 
   updateChannelInfo(channels) {
     const container = this.shadowRoot.getElementById('channel-info');
-    container.innerHTML = channels.map(ch => `
+    let html = channels.map(ch => `
       <div class="info-item">
         <div class="info-label">${ch.name} (${ch.wavelength}nm)</div>
         <div class="info-value" style="color: ${ch.color}">${ch.value.toFixed(1)} ${ch.unit}</div>
       </div>
     `).join('');
+
+    // Add Clear channel if available
+    if (this._clearValue !== undefined) {
+      html += `
+        <div class="info-item">
+          <div class="info-label">Clear</div>
+          <div class="info-value" style="color: #FFFFFF">${this._clearValue.toFixed(1)} ${this._clearUnit}</div>
+        </div>
+      `;
+    }
+
+    // Add NIR channel if available
+    if (this._nirValue !== undefined) {
+      html += `
+        <div class="info-item">
+          <div class="info-label">NIR (Near-IR)</div>
+          <div class="info-value" style="color: #8B0000">${this._nirValue.toFixed(1)} ${this._nirUnit}</div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
   }
 
   updatePARInfo(channels) {
@@ -348,7 +389,9 @@ class AS7341SpectrumCard extends HTMLElement {
         f5: 'sensor.555nm',
         f6: 'sensor.590nm',
         f7: 'sensor.630nm',
-        f8: 'sensor.680nm'
+        f8: 'sensor.680nm',
+        clear: 'sensor.clear',
+        nir: 'sensor.nir'
       },
       title: 'Light Spectrum'
     };

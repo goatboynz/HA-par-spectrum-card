@@ -47,39 +47,52 @@ i2c:
 
 sensor:
   - platform: as7341
+    # Integration time settings - adjust based on your light levels
+    atime: 29        # Integration time (0-255, each = 2.78ms)
+    astep: 599       # Integration steps (0-65534)
+    gain: X8         # Gain: X0.5, X1, X2, X4, X8, X16, X32, X64, X128, X256, X512
+    update_interval: 5s
+    
     f1:
       name: "AS7341 F1 415nm"
-      id: as7341_f1
     f2:
       name: "AS7341 F2 445nm"
-      id: as7341_f2
     f3:
       name: "AS7341 F3 480nm"
-      id: as7341_f3
     f4:
       name: "AS7341 F4 515nm"
-      id: as7341_f4
     f5:
       name: "AS7341 F5 555nm"
-      id: as7341_f5
     f6:
       name: "AS7341 F6 590nm"
-      id: as7341_f6
     f7:
       name: "AS7341 F7 630nm"
-      id: as7341_f7
     f8:
       name: "AS7341 F8 680nm"
-      id: as7341_f8
     clear:
       name: "AS7341 Clear"
     nir:
       name: "AS7341 NIR"
-    gain: X8
-    atime: 100
-    astep: 999
-    update_interval: 60s
 ```
+
+### Tuning Integration Time
+
+Integration time = `(atime + 1) × (astep + 1) × 2.78µs`
+
+**If all channels show the same high value (saturated):**
+- Decrease `gain`: X128 → X64 → X32 → X16 → X8
+- Or decrease `atime`: 100 → 50 → 29
+- Or decrease `astep`: 999 → 599 → 299
+
+**If all values are too low (near 0):**
+- Increase `gain`: X8 → X16 → X32 → X64
+- Or increase `atime`: 29 → 50 → 100
+- Or increase `astep`: 599 → 999
+
+**Recommended starting points:**
+- Bright indoor/outdoor: `atime: 29, astep: 599, gain: X8`
+- Normal indoor: `atime: 50, astep: 999, gain: X16`
+- Dim lighting: `atime: 100, astep: 999, gain: X64`
 
 ## Card Configuration
 
@@ -89,14 +102,16 @@ Add the card to your Lovelace dashboard:
 type: custom:as7341-spectrum-card
 title: Light Spectrum Analysis
 entities:
-  f1: sensor.415nm
-  f2: sensor.445nm
-  f3: sensor.480nm
-  f4: sensor.515nm
-  f5: sensor.555nm
-  f6: sensor.590nm
-  f7: sensor.630nm
-  f8: sensor.680nm
+  f1: sensor.as7341_f1_415nm
+  f2: sensor.as7341_f2_445nm
+  f3: sensor.as7341_f3_480nm
+  f4: sensor.as7341_f4_515nm
+  f5: sensor.as7341_f5_555nm
+  f6: sensor.as7341_f6_590nm
+  f7: sensor.as7341_f7_630nm
+  f8: sensor.as7341_f8_680nm
+  clear: sensor.as7341_clear      # Optional
+  nir: sensor.as7341_nir          # Optional
 ```
 
 ### Configuration Options
