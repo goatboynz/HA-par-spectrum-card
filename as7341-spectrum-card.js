@@ -67,6 +67,17 @@ class AS7341SpectrumCard extends HTMLElement {
           border-radius: 8px;
           text-align: center;
         }
+        .debug-info {
+          margin-top: 12px;
+          padding: 8px;
+          background: var(--secondary-background-color);
+          border-radius: 4px;
+          font-size: 11px;
+          font-family: monospace;
+          color: var(--secondary-text-color);
+          max-height: 200px;
+          overflow-y: auto;
+        }
       </style>
       <ha-card>
         <div class="card-header">${this.config.title || 'Light Spectrum'}</div>
@@ -75,19 +86,52 @@ class AS7341SpectrumCard extends HTMLElement {
         </div>
         <div class="info-grid" id="channel-info"></div>
         <div class="par-indicator" id="par-info"></div>
+        <div class="debug-info" id="debug-info"></div>
       </ha-card>
     `;
   }
 
   updateChart() {
-    if (!this._hass || !this.config.entities) return;
+    const debugInfo = [];
+    
+    if (!this._hass) {
+      debugInfo.push('ERROR: No hass object');
+      this.updateDebugInfo(debugInfo);
+      return;
+    }
+    
+    if (!this.config.entities) {
+      debugInfo.push('ERROR: No entities configured');
+      this.updateDebugInfo(debugInfo);
+      return;
+    }
+
+    debugInfo.push('Config entities:', JSON.stringify(this.config.entities, null, 2));
 
     const channels = this.getChannelData();
-    if (!channels || channels.length === 0) return;
+    
+    if (!channels || channels.length === 0) {
+      debugInfo.push('ERROR: No channel data retrieved');
+      this.updateDebugInfo(debugInfo);
+      return;
+    }
 
+    debugInfo.push(`Found ${channels.length} channels`);
+    channels.forEach(ch => {
+      debugInfo.push(`${ch.name}: ${ch.value} ${ch.unit} (${ch.available ? 'available' : 'unavailable'})`);
+    });
+
+    this.updateDebugInfo(debugInfo);
     this.drawSpectrum(channels);
     this.updateChannelInfo(channels);
     this.updatePARInfo(channels);
+  }
+
+  updateDebugInfo(messages) {
+    const container = this.shadowRoot.getElementById('debug-info');
+    if (container) {
+      container.innerHTML = messages.join('<br>');
+    }
   }
 
   getChannelData() {
@@ -103,8 +147,13 @@ class AS7341SpectrumCard extends HTMLElement {
       { name: 'F8', wavelength: 680, color: '#FF0000', entity: entities.f8 }
     ];
 
+    console.log('AS7341 Card - Configured entities:', entities);
+    console.log('AS7341 Card - Available states:', Object.keys(this._hass.states).filter(k => k.includes('spectrum')));
+
     return channels.filter(ch => ch.entity).map(ch => {
       const entity = this._hass.states[ch.entity];
+      console.log(`AS7341 Card - Channel ${ch.name} (${ch.entity}):`, entity);
+      
       const state = entity ? entity.state : 'unknown';
       const value = (state !== 'unknown' && state !== 'unavailable') ? parseFloat(state) : 0;
       
