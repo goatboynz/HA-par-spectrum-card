@@ -118,7 +118,7 @@ class AS7341SpectrumCard extends HTMLElement {
 
     debugInfo.push(`Found ${channels.length} channels`);
     channels.forEach(ch => {
-      debugInfo.push(`${ch.name}: ${ch.value} ${ch.unit} (${ch.available ? 'available' : 'unavailable'})`);
+      debugInfo.push(`${ch.name} (${ch.entity}): raw="${ch.rawState}" value=${ch.value} ${ch.unit} [${ch.available ? 'OK' : 'UNAVAILABLE'}]`);
     });
 
     this.updateDebugInfo(debugInfo);
@@ -147,21 +147,40 @@ class AS7341SpectrumCard extends HTMLElement {
       { name: 'F8', wavelength: 680, color: '#FF0000', entity: entities.f8 }
     ];
 
-    console.log('AS7341 Card - Configured entities:', entities);
-    console.log('AS7341 Card - Available states:', Object.keys(this._hass.states).filter(k => k.includes('spectrum')));
+    console.log('=== AS7341 Card Debug ===');
+    console.log('Configured entities:', entities);
+    console.log('All available entity IDs containing "spectrum":', 
+      Object.keys(this._hass.states).filter(k => k.includes('spectrum')));
 
     return channels.filter(ch => ch.entity).map(ch => {
       const entity = this._hass.states[ch.entity];
-      console.log(`AS7341 Card - Channel ${ch.name} (${ch.entity}):`, entity);
+      
+      console.log(`\nChannel ${ch.name}:`);
+      console.log(`  Entity ID: ${ch.entity}`);
+      console.log(`  Entity found: ${!!entity}`);
+      console.log(`  Entity state: ${entity?.state}`);
+      console.log(`  Entity attributes:`, entity?.attributes);
+      
+      if (!entity) {
+        console.warn(`  WARNING: Entity ${ch.entity} not found in hass.states`);
+      }
       
       const state = entity ? entity.state : 'unknown';
-      const value = (state !== 'unknown' && state !== 'unavailable') ? parseFloat(state) : 0;
+      let value = 0;
+      
+      if (state && state !== 'unknown' && state !== 'unavailable') {
+        value = parseFloat(state);
+        console.log(`  Parsed value: ${value} (from state: "${state}")`);
+      } else {
+        console.log(`  State is ${state}, using 0`);
+      }
       
       return {
         ...ch,
         value: isNaN(value) ? 0 : value,
         unit: entity?.attributes?.unit_of_measurement || '',
-        available: entity && state !== 'unknown' && state !== 'unavailable'
+        available: entity && state !== 'unknown' && state !== 'unavailable',
+        rawState: state
       };
     });
   }
