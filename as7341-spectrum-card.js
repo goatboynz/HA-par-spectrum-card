@@ -80,10 +80,10 @@ class AS7341SpectrumCard extends HTMLElement {
   }
 
   updateChart() {
-    if (!this._hass || !this.config.entity) return;
+    if (!this._hass || !this.config.entities) return;
 
     const channels = this.getChannelData();
-    if (!channels) return;
+    if (!channels || channels.length === 0) return;
 
     this.drawSpectrum(channels);
     this.updateChannelInfo(channels);
@@ -105,10 +105,14 @@ class AS7341SpectrumCard extends HTMLElement {
 
     return channels.filter(ch => ch.entity).map(ch => {
       const entity = this._hass.states[ch.entity];
+      const state = entity ? entity.state : 'unknown';
+      const value = (state !== 'unknown' && state !== 'unavailable') ? parseFloat(state) : 0;
+      
       return {
         ...ch,
-        value: entity ? parseFloat(entity.state) : 0,
-        unit: entity ? entity.attributes.unit_of_measurement : ''
+        value: isNaN(value) ? 0 : value,
+        unit: entity?.attributes?.unit_of_measurement || '',
+        available: entity && state !== 'unknown' && state !== 'unavailable'
       };
     });
   }
@@ -183,8 +187,11 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Get text color from CSS variable
+    const textColor = getComputedStyle(this).getPropertyValue('--primary-text-color') || '#ffffff';
+
     // Draw axes
-    ctx.strokeStyle = 'var(--primary-text-color)';
+    ctx.strokeStyle = textColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(padding, padding);
@@ -193,7 +200,7 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.stroke();
 
     // Draw labels
-    ctx.fillStyle = 'var(--primary-text-color)';
+    ctx.fillStyle = textColor;
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
     
