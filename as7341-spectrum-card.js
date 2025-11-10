@@ -68,12 +68,40 @@ class AS7341SpectrumCard extends HTMLElement {
           text-align: center;
           font-size: 14px;
         }
+        .warning-indicator {
+          margin-top: 12px;
+          padding: 12px;
+          background: var(--warning-color, #ff9800);
+          color: var(--text-primary-color);
+          border-radius: 8px;
+          text-align: center;
+          font-size: 13px;
+          display: none;
+        }
+        .warning-indicator.show {
+          display: block;
+        }
+        .info-indicator {
+          margin-top: 12px;
+          padding: 12px;
+          background: var(--info-color, #2196F3);
+          color: var(--text-primary-color);
+          border-radius: 8px;
+          text-align: center;
+          font-size: 13px;
+          display: none;
+        }
+        .info-indicator.show {
+          display: block;
+        }
       </style>
       <ha-card>
         <div class="card-header">${this.config.title || 'Light Spectrum'}</div>
         <div class="spectrum-container">
           <canvas id="spectrum-canvas"></canvas>
         </div>
+        <div class="warning-indicator" id="warning-info"></div>
+        <div class="info-indicator" id="status-info"></div>
         <div class="info-grid" id="channel-info"></div>
         <div class="par-indicator" id="par-info"></div>
       </ha-card>
@@ -86,9 +114,50 @@ class AS7341SpectrumCard extends HTMLElement {
     const channels = this.getChannelData();
     if (!channels || channels.length === 0) return;
 
+    this.checkSensorStatus(channels);
     this.drawSpectrum(channels);
     this.updateChannelInfo(channels);
     this.updatePARInfo(channels);
+  }
+
+  checkSensorStatus(channels) {
+    const warningContainer = this.shadowRoot.getElementById('warning-info');
+    const statusContainer = this.shadowRoot.getElementById('status-info');
+    
+    const values = channels.map(ch => ch.value).filter(v => v > 0);
+    
+    if (values.length === 0) {
+      // All zeros
+      statusContainer.innerHTML = '💡 No light detected. Ensure sensor is exposed to light source.';
+      statusContainer.classList.add('show');
+      warningContainer.classList.remove('show');
+      return;
+    }
+    
+    const maxValue = Math.max(...values);
+    const minValue = Math.min(...values.filter(v => v > 0));
+    const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
+    
+    // Check for saturation (all values very similar and high)
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - avgValue, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance);
+    const coefficientOfVariation = stdDev / avgValue;
+    
+    if (coefficientOfVariation < 0.1 && maxValue > 50000) {
+      // Likely saturated
+      warningContainer.innerHTML = '⚠️ Sensors may be saturated! Reduce <strong>gain</strong> or <strong>atime</strong> in ESPHome config.';
+      warningContainer.classList.add('show');
+      statusContainer.classList.remove('show');
+    } else if (maxValue < 100) {
+      // Values too low
+      statusContainer.innerHTML = '📉 Signal weak. Increase <strong>gain</strong> or <strong>atime</strong> in ESPHome config.';
+      statusContainer.classList.add('show');
+      warningContainer.classList.remove('show');
+    } else {
+      // Good readings
+      warningContainer.classList.remove('show');
+      statusContainer.classList.remove('show');
+    }
   }
 
   getChannelData() {
