@@ -11,6 +11,8 @@ A custom Lovelace card for visualizing AS7341 spectral sensor data in Home Assis
 - 🎨 Automatic color mapping to wavelengths
 - 📱 Responsive design
 
+https://github.com/goatboynz/HA-par-spectrum-card/blob/main/Screenshot%202025-11-10%20183434.png
+
 ## Installation
 
 ### HACS (Recommended)
