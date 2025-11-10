@@ -141,89 +141,66 @@ class AS7341SpectrumCard extends HTMLElement {
     // Find max value for scaling
     const maxValue = Math.max(...channels.map(ch => ch.value), 1);
 
+    // Create interpolated points for smoother curve
+    const interpolatedPoints = this.interpolateSpectrum(channels, maxValue, chartWidth, chartHeight, padding);
+
     // Draw background gradient (soft pastel colors)
     const bgGradient = ctx.createLinearGradient(padding, 0, padding + chartWidth, 0);
-    bgGradient.addColorStop(0, 'rgba(138, 43, 226, 0.15)');    // Violet
-    bgGradient.addColorStop(0.15, 'rgba(100, 149, 237, 0.15)'); // Cornflower blue
-    bgGradient.addColorStop(0.3, 'rgba(135, 206, 235, 0.15)');  // Sky blue
-    bgGradient.addColorStop(0.45, 'rgba(144, 238, 144, 0.15)'); // Light green
-    bgGradient.addColorStop(0.55, 'rgba(255, 255, 224, 0.15)'); // Light yellow
-    bgGradient.addColorStop(0.7, 'rgba(255, 218, 185, 0.15)');  // Peach
-    bgGradient.addColorStop(0.85, 'rgba(255, 192, 203, 0.15)'); // Pink
-    bgGradient.addColorStop(1, 'rgba(255, 182, 193, 0.15)');    // Light pink
+    bgGradient.addColorStop(0, 'rgba(138, 43, 226, 0.12)');
+    bgGradient.addColorStop(0.15, 'rgba(100, 149, 237, 0.12)');
+    bgGradient.addColorStop(0.3, 'rgba(135, 206, 235, 0.12)');
+    bgGradient.addColorStop(0.45, 'rgba(144, 238, 144, 0.12)');
+    bgGradient.addColorStop(0.55, 'rgba(255, 255, 224, 0.12)');
+    bgGradient.addColorStop(0.7, 'rgba(255, 218, 185, 0.12)');
+    bgGradient.addColorStop(0.85, 'rgba(255, 192, 203, 0.12)');
+    bgGradient.addColorStop(1, 'rgba(255, 182, 193, 0.12)');
     
     ctx.fillStyle = bgGradient;
     ctx.fillRect(padding, padding, chartWidth, chartHeight);
 
-    // Prepare data points
-    const points = channels.map(ch => ({
-      x: this.wavelengthToX(ch.wavelength, chartWidth, padding),
-      y: padding + chartHeight - (ch.value / maxValue) * chartHeight
-    }));
-
-    // Draw the actual data curve with gradient fill using cardinal spline
+    // Draw the spectrum curve
     ctx.beginPath();
     ctx.moveTo(padding, padding + chartHeight);
-    ctx.lineTo(points[0].x, points[0].y);
-
-    // Use cardinal spline for smooth, natural curves
-    const tension = 0.5; // Controls curve tightness (0 = straight lines, 1 = very curvy)
     
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[Math.max(i - 1, 0)];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[Math.min(i + 2, points.length - 1)];
-      
-      // Calculate control points for cardinal spline
-      const cp1x = p1.x + (p2.x - p0.x) / 6 * tension;
-      const cp1y = p1.y + (p2.y - p0.y) / 6 * tension;
-      const cp2x = p2.x - (p3.x - p1.x) / 6 * tension;
-      const cp2y = p2.y - (p3.y - p1.y) / 6 * tension;
-      
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-    }
-
-    const lastX = this.wavelengthToX(channels[channels.length - 1].wavelength, chartWidth, padding);
-    ctx.lineTo(lastX, padding + chartHeight);
+    interpolatedPoints.forEach((point, i) => {
+      if (i === 0) {
+        ctx.lineTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
+    
+    ctx.lineTo(interpolatedPoints[interpolatedPoints.length - 1].x, padding + chartHeight);
     ctx.closePath();
 
-    // Create vibrant rainbow gradient fill for data
+    // Create vibrant rainbow gradient fill
     const dataGradient = ctx.createLinearGradient(padding, 0, padding + chartWidth, 0);
-    dataGradient.addColorStop(0, 'rgba(138, 43, 226, 0.9)');    // Violet
-    dataGradient.addColorStop(0.15, 'rgba(75, 0, 130, 0.9)');   // Indigo
-    dataGradient.addColorStop(0.25, 'rgba(0, 0, 255, 0.9)');    // Blue
-    dataGradient.addColorStop(0.4, 'rgba(0, 191, 255, 0.9)');   // Deep sky blue
-    dataGradient.addColorStop(0.5, 'rgba(0, 255, 0, 0.9)');     // Green
-    dataGradient.addColorStop(0.6, 'rgba(173, 255, 47, 0.9)');  // Green yellow
-    dataGradient.addColorStop(0.7, 'rgba(255, 255, 0, 0.9)');   // Yellow
-    dataGradient.addColorStop(0.8, 'rgba(255, 165, 0, 0.9)');   // Orange
-    dataGradient.addColorStop(0.9, 'rgba(255, 69, 0, 0.9)');    // Red orange
-    dataGradient.addColorStop(1, 'rgba(255, 0, 0, 0.9)');       // Red
+    dataGradient.addColorStop(0, 'rgba(138, 43, 226, 0.85)');
+    dataGradient.addColorStop(0.15, 'rgba(75, 0, 130, 0.85)');
+    dataGradient.addColorStop(0.25, 'rgba(0, 0, 255, 0.85)');
+    dataGradient.addColorStop(0.4, 'rgba(0, 191, 255, 0.85)');
+    dataGradient.addColorStop(0.5, 'rgba(0, 255, 0, 0.85)');
+    dataGradient.addColorStop(0.6, 'rgba(173, 255, 47, 0.85)');
+    dataGradient.addColorStop(0.7, 'rgba(255, 255, 0, 0.85)');
+    dataGradient.addColorStop(0.8, 'rgba(255, 165, 0, 0.85)');
+    dataGradient.addColorStop(0.9, 'rgba(255, 69, 0, 0.85)');
+    dataGradient.addColorStop(1, 'rgba(255, 0, 0, 0.85)');
     
     ctx.fillStyle = dataGradient;
     ctx.fill();
 
-    // Draw outline on the data curve
+    // Draw smooth outline
     ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
+    interpolatedPoints.forEach((point, i) => {
+      if (i === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
     
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[Math.max(i - 1, 0)];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[Math.min(i + 2, points.length - 1)];
-      
-      const cp1x = p1.x + (p2.x - p0.x) / 6 * tension;
-      const cp1y = p1.y + (p2.y - p0.y) / 6 * tension;
-      const cp2x = p2.x - (p3.x - p1.x) / 6 * tension;
-      const cp2y = p2.y - (p3.y - p1.y) / 6 * tension;
-      
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-    }
-    
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     // Get text color from CSS variable
@@ -243,7 +220,6 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     
-    // Draw labels at regular intervals
     for (let wl = 400; wl <= 700; wl += 50) {
       const x = this.wavelengthToX(wl, chartWidth, padding);
       ctx.fillText(`${wl}`, x, height - 15);
@@ -262,6 +238,67 @@ class AS7341SpectrumCard extends HTMLElement {
     ctx.textAlign = 'center';
     ctx.font = '12px sans-serif';
     ctx.fillText('Wavelength (nm)', width / 2, height - 2);
+  }
+
+  interpolateSpectrum(channels, maxValue, chartWidth, chartHeight, padding) {
+    const points = [];
+    const numInterpolated = 100; // Number of points to create smooth curve
+    
+    // Create array of wavelength/value pairs
+    const dataPoints = channels.map(ch => ({
+      wavelength: ch.wavelength,
+      value: ch.value
+    }));
+    
+    // Interpolate between points using cubic interpolation
+    for (let i = 0; i <= numInterpolated; i++) {
+      const wavelength = 415 + (i / numInterpolated) * (680 - 415);
+      const value = this.cubicInterpolate(dataPoints, wavelength);
+      const x = this.wavelengthToX(wavelength, chartWidth, padding);
+      const y = padding + chartHeight - (value / maxValue) * chartHeight;
+      points.push({ x, y });
+    }
+    
+    return points;
+  }
+
+  cubicInterpolate(dataPoints, wavelength) {
+    // Find surrounding points
+    let i1 = 0;
+    for (let i = 0; i < dataPoints.length - 1; i++) {
+      if (wavelength >= dataPoints[i].wavelength && wavelength <= dataPoints[i + 1].wavelength) {
+        i1 = i;
+        break;
+      }
+    }
+    
+    const i0 = Math.max(0, i1 - 1);
+    const i2 = Math.min(dataPoints.length - 1, i1 + 1);
+    const i3 = Math.min(dataPoints.length - 1, i1 + 2);
+    
+    const p0 = dataPoints[i0];
+    const p1 = dataPoints[i1];
+    const p2 = dataPoints[i2];
+    const p3 = dataPoints[i3];
+    
+    // Normalize t between 0 and 1
+    const t = (wavelength - p1.wavelength) / (p2.wavelength - p1.wavelength);
+    
+    // Catmull-Rom spline interpolation
+    const t2 = t * t;
+    const t3 = t2 * t;
+    
+    const v0 = p0.value;
+    const v1 = p1.value;
+    const v2 = p2.value;
+    const v3 = p3.value;
+    
+    return 0.5 * (
+      (2 * v1) +
+      (-v0 + v2) * t +
+      (2 * v0 - 5 * v1 + 4 * v2 - v3) * t2 +
+      (-v0 + 3 * v1 - 3 * v2 + v3) * t3
+    );
   }
 
   wavelengthToX(wavelength, chartWidth, padding) {
