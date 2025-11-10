@@ -5,7 +5,7 @@
 
 A beautiful custom Lovelace card for visualizing AS7341 11-channel spectral sensor data in Home Assistant. Perfect for monitoring grow lights, analyzing light quality, and optimizing plant growth conditions.
 
-![AS7341 Spectrum Card](screenshot.png)
+![AS7341 Spectrum Card](https://github.com/goatboynz/HA-par-spectrum-card/blob/main/Screenshot%202025-11-10%20183434.png)
 
 ## ✨ Features
 
